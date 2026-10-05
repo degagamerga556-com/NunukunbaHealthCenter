@@ -1,10 +1,10 @@
 name: Build Android APK
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
   build:
@@ -18,44 +18,54 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          java-version: '17'
 
-      - name: Set up Android
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install Android SDK
+      - name: Accept Android SDK licenses
+        shell: bash
         run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+
+      - name: Install Android SDK packages
+        shell: bash
+        run: |
+          yes | sdkmanager             "platform-tools"             "platforms;android-35"             "build-tools;35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.10"
+          gradle-version: '8.10'
 
-      - name: Extract Android project
+      - name: Find and extract Android project
+        shell: bash
         run: |
-          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+          ZIP_FILE="$(find . -maxdepth 2 -type f -name '*.zip' | head -n 1)"
 
           if [ -z "$ZIP_FILE" ]; then
             echo "Android project ZIP not found."
             exit 1
           fi
 
+          echo "Using: $ZIP_FILE"
+          rm -rf build-source
           mkdir -p build-source
-          unzip -o "$ZIP_FILE" -d build-source
+          unzip -q "$ZIP_FILE" -d build-source
 
-          SETTINGS=$(find build-source -type f -name "settings.gradle.kts" | head -n 1)
+          SETTINGS="$(find build-source -type f -name 'settings.gradle.kts' | head -n 1)"
 
           if [ -z "$SETTINGS" ]; then
-            echo "settings.gradle.kts not found."
+            echo "settings.gradle.kts not found after extraction."
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$SETTINGS")
+          PROJECT_DIR="$(dirname "$SETTINGS")"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Project directory: $PROJECT_DIR"
 
       - name: Build debug APK
+        shell: bash
         run: |
           cd "$PROJECT_DIR"
           gradle assembleDebug --stacktrace
@@ -66,3 +76,4 @@ jobs:
           name: Nunu-Kunba-Health-Center-APK
           path: "${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk"
           if-no-files-found: error
+          
