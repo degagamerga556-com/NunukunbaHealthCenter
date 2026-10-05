@@ -18,13 +18,12 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: gradle
 
-    - name: Build APK (Auto-detecting Project Folder)
+    - name: Build APK
       run: |
         GRADLE_DIR=$(find . -name "gradlew" -exec dirname {} \; | head -n 1)
         if [ -z "$GRADLE_DIR" ]; then
-          echo "Error: gradlew not found in your repository!"
+          echo "Error: gradlew file not found!"
           exit 1
         fi
         echo "Found gradlew in: $GRADLE_DIR"
@@ -32,7 +31,7 @@ jobs:
         chmod +x gradlew
         ./gradlew assembleDebug
 
-    - name: Upload APK
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: my-app-apk
