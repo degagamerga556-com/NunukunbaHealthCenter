@@ -2,7 +2,10 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
+      - master
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -10,29 +13,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - name: Get source code
+        uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
 
-    - name: Build APK
-      run: |
-        GRADLE_DIR=$(find . -name "gradlew" -exec dirname {} \; | head -n 1)
-        if [ -z "$GRADLE_DIR" ]; then
-          echo "Error: gradlew file not found!"
-          exit 1
-        fi
-        echo "Found gradlew in: $GRADLE_DIR"
-        cd "$GRADLE_DIR"
-        chmod +x gradlew
-        ./gradlew assembleDebug
+      - name: Find Gradle wrapper
+        id: gradle
+        shell: bash
+        run: |
+          WRAPPER="$(find . -type f -name gradlew -not -path '*/.gradle/*' | head -n 1)"
 
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: my-app-apk
-        path: "**/build/outputs/apk/debug/*.apk"
+          if [ -z "$WRAPPER" ]; then
+            echo "Gradle wrapper (gradlew) hin argamne."
+            echo "gradlew fi gradle/wrapper/ faayilota isaanii GitHub irratti ol-fe'i."
+            exit 1
+          fi
+
+          PROJECT_DIR="$(dirname "$WRAPPER")"
+          echo "project_dir=$PROJECT_DIR" >> "$GITHUB_OUTPUT"
+          chmod +x "$WRAPPER"
+
+      - name: Build debug APK
+        working-directory: ${{ steps.gradle.outputs.project_dir }}
+        run: ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: "**/build/outputs/apk/debug/*.apk"
+          if-no-files-found: error
